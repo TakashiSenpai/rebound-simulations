@@ -37,15 +37,17 @@ orb = pyorb.Orbit(
     SAVE ASTEROID STATES TO FILE
 '''
 
-with open('asteroidStates.csv', 'w') as dataFile:
-    csvWriter = csv.writer(dataFile)
-    for i in range(nOrb):
-        row = []
-        for j in range(6):
-            row.append(str(orb[i].cartesian[j][0]))
-        csvWriter.writerow(row)
+# with open('asteroidStates.csv', 'w') as dataFile:
+#     csvWriter = csv.writer(dataFile)
+#     for i in range(nOrb):
+#         row = []
+#         for j in range(6):
+#             row.append(str(orb[i].cartesian[j][0]))
+#         csvWriter.writerow(row)
 
 # use numpy savetxt with comma delimiter
+
+np.savetxt('asteroidStates.csv', np.transpose(orb.cartesian), fmt='%f')
 
 '''
     PLOTTING GO BRRRRRRR

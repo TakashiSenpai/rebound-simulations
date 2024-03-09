@@ -84,7 +84,7 @@ int main(void){
     }
     fclose(f);
 
-    int nAsteroids = 10000;
+    int nAsteroids = 100;
     if (CgenAsteroids == true){
         // add asteroid belt
         // min distance : 1.6 A.U. (after Mars Orbit)
@@ -152,7 +152,7 @@ int main(void){
         while ((line_size = getline(&line_buf, &line_buf_size, f)) != -1){
 
             // read the file with asteroid states
-            sscanf(line_buf, "%lf, %lf, %lf, %lf, %lf, %lf,", &state[0], &state[1], &state[2], &state[3], &state[4], &state[5]);
+            sscanf(line_buf, "%lf %lf %lf %lf %lf %lf", &state[0], &state[1], &state[2], &state[3], &state[4], &state[5]);
             if( line_size <= 0 ){
                 printf("Reached end of file, or otherwise failed to read. Returned: %i\n", (int)line_size);
                 break; //exit the loop
