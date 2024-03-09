@@ -153,4 +153,5 @@ axes[3].set_xlim([-7, 7])
 axes[3].set_ylim([-7, 7])
 
 plt.get_current_fig_manager().full_screen_toggle()
+plt.savefig('graphs/solarSystemPlot', format='png')
 plt.show()
