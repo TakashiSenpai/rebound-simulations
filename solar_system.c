@@ -1,3 +1,11 @@
+/*
+    AUTHOR: Louis-Hendrik Barboutie
+    CONTACT: louis.barboutie@gmail.com
+    EDITED: 09/03/2024
+
+    PURPOSE: Simulation of the solar system with an asteroid belt
+*/
+
 #include "rebound.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -8,7 +16,7 @@
 
 double endTime;
 void heartbeat(struct reb_simulation *r){
-    if (r->steps_done % 100 == 0){
+    if (r->steps_done % 5000 == 0){
         printf("\rCurrent simulation completion: %f %%, simulation steps: %li", r->t / endTime * 100, r->steps_done);
     }
 }
@@ -34,7 +42,7 @@ int main(void){
         return EXIT_FAILURE;
     }
 
-    if (remove("archive.bin") != 0){
+    if (remove("archives/archive.bin") != 0){
        printf("warning: archive could not be removed\n");
     }
 
@@ -84,14 +92,14 @@ int main(void){
     }
     fclose(f);
 
-    int nAsteroids = 100;
+    int nAsteroids = 10000;
     if (CgenAsteroids == true){
         // add asteroid belt
         // min distance : 1.6 A.U. (after Mars Orbit)
-        // max distance: 5 A.U. (before Jupiter orbit)
+        // max distance: 4.7 A.U. (before Jupiter orbit)
         double au2km      = 149597870.7;
         double minDist    = 1.6 * au2km * 1000;
-        double maxDist    = 5 * au2km * 1000;
+        double maxDist    = 4.7 * au2km * 1000;
         double avgDist    = (maxDist + minDist ) / 2;
         double ranDist;
 
@@ -179,10 +187,13 @@ int main(void){
     printf("Setting up the simulation parameters ... ");
     reb_simulation_move_to_com(r);
     // do funky simulation
-    endTime = 86400. * 365 * 100000; // * 1000; // one hundred years in seconds
+    int years = 100000;
+    endTime = 86400. * 365 * years; // * 1000; // one hundred years in seconds
     int nSnapshots = 10;
     double saveInterval = endTime / nSnapshots;
-    reb_simulation_save_to_file_interval(r, "archive.bin", saveInterval);
+    char archivePath[256];
+    sprintf(archivePath, "archives/archive_%i_years_%i_particles.bin", years, nAsteroids);
+    reb_simulation_save_to_file_interval(r, archivePath, saveInterval);
     r->dt         = 8640000.;
     r->N_active   = 10; // only the planets are not test particles
     r->heartbeat  = heartbeat;
