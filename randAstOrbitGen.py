@@ -10,7 +10,6 @@
 import pyorb
 import numpy as np
 import matplotlib.pyplot as plt
-import csv
 import sys
 
 '''
@@ -48,7 +47,7 @@ orb = pyorb.Orbit(
 '''
     SAVE ASTEROID STATES TO FILE
 '''
-print('Saving text... ')
+print('Saving asteroid states... ')
 np.savetxt('asteroidStates.csv', np.transpose(orb.cartesian), fmt='%f')
 
 
