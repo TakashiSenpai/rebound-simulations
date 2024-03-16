@@ -17,11 +17,10 @@
 double endTime; // needs to be global for the heartbeat function
 
 void heartbeat(struct reb_simulation *r){
-    /*
-        function to print out the completion of the simulation
-    */
-    if (r->steps_done % 1000 == 0){
-        printf("\rCompletion: %.1f %%, Steps: %li", r->t / endTime * 100, r->steps_done);
+    // function to print out the completion of the simulation
+    if (r->steps_done % 100 == 0){
+        printf("Simulation completion: %.1f %%\r", r->t / endTime * 100);
+        //printf("\rCompletion: %.1f %%, Steps: %li", r->t / endTime * 100, r->steps_done);
     }
 }
 
@@ -107,20 +106,21 @@ int main(void){
     // initialize the rebound simulation
     struct reb_simulation *r  = reb_simulation_create();
     int nBodies = 0;
-    int nAsteroids = 10;
-    int years = 100000;
+    int nAsteroids = 100;
+    int years = 10000; 
     int nSnapshots = 10;
+    int saveInterval = 2;
+    int saveTime = nSnapshots * saveInterval;
     endTime = 86400. * 365 * years; // one hundred years in seconds
-    double saveInterval = endTime / nSnapshots;
     sprintf(saveArchivePath, "archives/archive_%i_years_%i_particles.bin", years, nAsteroids);
 
     // set up simulation parameters
-    r->G = 6.6743e-11;           // change value of G to SI units
-    r->dt         = 20 * 86400.; // 20 days or a quarter of Mercury's orbit
+    r->G          = 6.6743e-11;  // change value of G to SI units
+    r->dt         = 10 * 86400.; // 10 days or an eightth of Mercury's orbit
     r->N_active   = 10;          // only the planets are not test particles
     r->heartbeat  = heartbeat;
     r->integrator = REB_INTEGRATOR_WHFAST;
-    r->exact_finish_time = 0;
+    //r->exact_finish_time = 0;
 
     // remove the last archive because rebound always appends snapshots
     (remove(workArchivePath) == 0) ? 
@@ -223,33 +223,22 @@ int main(void){
 
     printf("Running the simulation ...\n");
     
-    // integrate with snapshot saving 
-    // reb_simulation_save_to_file_interval(r, archivePath, 365 * 86400.); // use this if using time
+    // Integrate with snapshot saving 
     printf("Saving the initial snapshots ...\n");
-    for (int i=0; i<10; i++){
-        reb_simulation_save_to_file(r, workArchivePath);
-        reb_simulation_step(r);
-    }
+    reb_simulation_save_to_file_interval(r, workArchivePath, saveInterval * r->dt);
+    reb_simulation_integrate(r, saveTime);
+    printf("\n");
 
-    // reb_simulation_save_to_file_step(r, workArchivePath, 4);
-    // reb_simulation_steps(r, 4 * nSnapshots);
-    
-    // reb_simulation_free(r);
-
-    // reload the last state from the archive to continue integration without snapshots
+    // Integrate without snapshots for a loooong time
     printf("Time travelling to the future ...\n");
-    // struct reb_simulationarchive* archive = reb_simulationarchive_create_from_file(workArchivePath);
-    // reb_simulationarchive_free(archive);
-    // reb_simulation_steps(r, 100000);
+    reb_simulation_save_to_file_interval(r, workArchivePath, 0);
     reb_simulation_integrate(r, endTime);
+    printf("\n");
 
-    // save more snapshots of the end of the simulation
+    // Save more snapshots of the end of the simulation
     printf("Saving the final snapshots ...\n");
-    for (int i=0; i<10; i++){
-        reb_simulation_save_to_file(r, workArchivePath);
-        reb_simulation_step(r);
-    }
-
+    reb_simulation_save_to_file_interval(r, workArchivePath, saveInterval * r->dt);
+    reb_simulation_integrate(r, saveTime);
     printf("\n");
     
 
