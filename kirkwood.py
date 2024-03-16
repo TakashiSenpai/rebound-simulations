@@ -40,7 +40,7 @@ with open('input.csv', 'r', newline='') as dataFile:
         zVelIni.append(float(row[5]))
         
         lineCount += 1
-        
+
 for i in range(lineCount):
     state = np.array([xPosIni[i], yPosIni[i], zPosIni[i], xVelIni[i], yVelIni[i], zVelIni[i]])
     kepState = cart_to_kep(state)
