@@ -19,7 +19,7 @@ double endTime; // needs to be global for the heartbeat function
 void heartbeat(struct reb_simulation *r){
     // function to print out the completion of the simulation
     if (r->steps_done % 100 == 0){
-        printf("Simulation completion: %.2f %%, Steps done: %lu\r", r->t / endTime * 100, r->steps_done);
+        printf("Simulation completion: %.2f %%, Steps done: %lu, time: %.1f years\r", r->t / endTime * 100, r->steps_done, r->t / 365 / 86400);
         //printf("\rCompletion: %.1f %%, Steps: %li", r->t / endTime * 100, r->steps_done);
     }
 }
@@ -71,6 +71,8 @@ void file_copy(char *ref_file_path, char *new_file_path){
     // close files
     fclose(fptr_ref);
     fclose(fptr_dest);
+
+    printf("File copied successfully!\n");
     return;
 }
 
@@ -92,7 +94,7 @@ int main(void){
     double   m, x, y, z, vx, vy, vz; // placeholders for adding particles to the simulation
 
     // conversion factors
-    double m2au = 6.6846e-12;
+    double au2m = 1.496e11;
     double km2m = 1000;
 
     // Archive paths
@@ -110,12 +112,13 @@ int main(void){
     // initialize the rebound simulation
     struct reb_simulation *r  = reb_simulation_create();
     int nBodies = 0;
-    int nAsteroids = 100000;
+    int nAsteroids = 1000;
+    //double boxSize = 75 * au2m; 
     int years = 1000000; 
+    double timeStep = 10 * 86400.; // 10 days or an eightth of Mercury's orbit
     int nSnapshots = 10;
     int saveInterval = 2;
-    int saveTime = nSnapshots * saveInterval;
-    double timeStep = 10 * 86400.; // 10 days or an eightth of Mercury's orbit
+    int saveTime = nSnapshots * saveInterval * timeStep;
     endTime = 86400. * 365 * years; // one hundred years in seconds
     sprintf(saveArchivePath, "archives/archive_%i_years_%i_particles.bin", years, nAsteroids);
 
@@ -126,6 +129,8 @@ int main(void){
     r->heartbeat  = heartbeat;
     r->integrator = REB_INTEGRATOR_WHFAST;
     r->exact_finish_time = 0;
+    //reb_simulation_configure_box(r, boxSize, 1, 1, 1); // confine the simulation to a box of size 10
+    //r->boundary = REB_BOUNDARY_OPEN;
 
     // remove the last archive because rebound always appends snapshots
     (remove(workArchivePath) == 0) ? 
@@ -229,20 +234,21 @@ int main(void){
     printf("Running the simulation ...\n");
     
     // Integrate with snapshot saving 
-    printf("Saving the initial snapshots ...\n");
-    reb_simulation_save_to_file_interval(r, workArchivePath, saveInterval * r->dt);
+    printf("\nSaving the initial snapshots ...\n");
+    reb_simulation_save_to_file_interval(r, workArchivePath, saveInterval);
     reb_simulation_integrate(r, saveTime);
     printf("\n");
 
+    
     // Integrate without snapshots for a loooong time
-    printf("Time travelling to the future ...\n");
+    printf("\nTime travelling to the future ...\n");
     reb_simulation_save_to_file_interval(r, workArchivePath, 0);
     reb_simulation_integrate(r, endTime);
     printf("\n");
-
+    
     // Save more snapshots of the end of the simulation
-    printf("Saving the final snapshots ...\n");
-    reb_simulation_save_to_file_interval(r, workArchivePath, saveInterval * r->dt);
+    printf("\nSaving the final snapshots ...\n");
+    reb_simulation_save_to_file_interval(r, workArchivePath, saveInterval);
     reb_simulation_integrate(r, endTime + saveTime);
     printf("\n");
     
