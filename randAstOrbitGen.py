@@ -47,7 +47,7 @@ orb = pyorb.Orbit(
 '''
     SAVE ASTEROID STATES TO FILE
 '''
-print('Saving asteroid states... ')
+print('Generating random asteroid states ... ')
 np.savetxt('asteroidStates.csv', np.transpose(orb.cartesian), fmt='%f')
 
 
