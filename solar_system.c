@@ -44,15 +44,15 @@ void save_state(char *file_path, struct reb_simulation *r){
     fclose(f);
 }
 
-void file_copy(char *ref_file_path, char *new_file_path){
+void binary_file_copy(char *ref_file_path, char *new_file_path){
     FILE *fptr_ref, *fptr_dest;
-    char temp_ch;
+    int temp_ch;
     
     // open files
-    if ((fptr_ref = fopen(ref_file_path, "r")) == NULL){
+    if ((fptr_ref = fopen(ref_file_path, "rb")) == NULL){
         printf("Error opening reference file\n");
     }
-    if ((fptr_dest = fopen(new_file_path, "w")) == NULL){
+    if ((fptr_dest = fopen(new_file_path, "wb")) == NULL){
         printf("Error opening destination file\n");
     }
 
@@ -72,7 +72,7 @@ void file_copy(char *ref_file_path, char *new_file_path){
     fclose(fptr_ref);
     fclose(fptr_dest);
 
-    printf("File copied successfully!\n");
+    printf("File '%s' copied successfully to '%s'!\n", ref_file_path, new_file_path);
     return;
 }
 
@@ -112,12 +112,12 @@ int main(void){
     // initialize the rebound simulation
     struct reb_simulation *r  = reb_simulation_create();
     int nBodies = 0;
-    int nAsteroids = 1000;
+    int nAsteroids = 100000;
     //double boxSize = 75 * au2m; 
-    int years = 1000000; 
+    int years = 100000; 
     double timeStep = 10 * 86400.; // 10 days or an eightth of Mercury's orbit
-    int nSnapshots = 10;
-    int saveInterval = 2;
+    int nSnapshots = 20;
+    int saveInterval = 50;
     int saveTime = nSnapshots * saveInterval * timeStep;
     endTime = 86400. * 365 * years; // one hundred years in seconds
     sprintf(saveArchivePath, "archives/archive_%i_years_%i_particles.bin", years, nAsteroids);
@@ -187,13 +187,15 @@ int main(void){
 
     printf("Adding asteroids to simulation ...\n");
     
+    /*
     // Use python to generate the asteroid states
     char cmdStr1[] = "python3 randAstOrbitGen.py "; 
     char cmdStr2[64];
     sprintf(cmdStr2, "%d", nAsteroids);
     strcat(cmdStr1, cmdStr2);
     system(cmdStr1);
-
+    */
+   
     // Open the file with the asteroid states
     if ((f = fopen("asteroidStates.csv", "r")) == NULL){
         printf("Error opening the asteroid states file\n");
@@ -233,11 +235,13 @@ int main(void){
 
     printf("Running the simulation ...\n");
     
+    /*
     // Integrate with snapshot saving 
     printf("\nSaving the initial snapshots ...\n");
     reb_simulation_save_to_file_interval(r, workArchivePath, saveInterval);
     reb_simulation_integrate(r, saveTime);
     printf("\n");
+    */
 
     
     // Integrate without snapshots for a loooong time
@@ -253,7 +257,6 @@ int main(void){
     printf("\n");
     
 
-
     // ========================================= //
     // === POST PROCESSING OF THE SIMULATION === //
     // ========================================= //
@@ -268,7 +271,7 @@ int main(void){
     reb_simulation_free(r);
 
     // archive the simulation
-    file_copy(workArchivePath, saveArchivePath);
+    binary_file_copy(workArchivePath, saveArchivePath);
 
     return EXIT_SUCCESS;
 }
