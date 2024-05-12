@@ -25,7 +25,7 @@ width = maxDist - minDist
 maxEcc = 0.1
 varEcc = 0.05
 avgInc = 0
-varInc = 15
+varInc = 5
 
 nOrb = int(sys.argv[1])
 np.random.seed(42)
