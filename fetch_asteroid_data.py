@@ -1,5 +1,13 @@
 '''
-    Attempt at making http request to the horizons database for getting the asteroids' states
+    AUTHOR  : Louis-Hendrik BARBOUTIE
+    CONTACT : louis.barboutie@gmail.com
+    INPUT   : None
+    RETURNS : Two csv files, one with the state vectors and one with the epochs of observations
+    SYNOPSIS: This script performs asynchronous calls to the JPL Horizons small body database
+              to fetch the state vectors of all the catalogued asteroids. 
+              The large amount of requests makes synchronous requests not viable. Since the 
+              database frequently returns 503 status errors upon requests, a while loop is 
+              necessary to resend the requests which failed.
 '''
 
 import requests
@@ -10,36 +18,23 @@ import aiohttp
 import time
 import numpy as np
 
-
-
-# ========================= #
-# === SYNCHRONOUS CALLS === #
-# ========================= #
+# ========================== #
+# === PHYSICAL CONSTANTS === #
+# ========================== #
 
 au2m = 1.496e11
-nSmallBodies = 660000 # checked 17/03/2024
-
-# horizon database url
-url = 'https://ssd-api.jpl.nasa.gov/sbdb.api'
-
-commands = [f"{url}?sstr={id+1}&sat=1" for id in range(10)]
-'''
-t0 = time.time()
-data = []
-for i, cmd in enumerate(commands):
-    r = requests.get(cmd)
-    data.append(r.json())
-    print(f'Current request nbr: {i+1}')
-t1 = time.time()
-print(f'Total time elapsed: {t1-t0}')
-'''
 
 # ========================== #
 # === ASYNCHRONOUS CALLS === #
 # ========================== #
 
+# StackOverFlow magic right there
 async def get(session, id):
-    url = f'https://ssd-api.jpl.nasa.gov/sbdb.api?sstr={id+1}&sat=1'
+    '''
+        Asynchronous function to fetch a single id
+        Returns data only upon successful request
+    '''
+    url = f'https://ssd-api.jpl.nasa.gov/sbdb.api?sstr={id}&sat=1'
     response = await session.request('GET', url=url)
     if response.status == 200:
         content = await response.read()
@@ -53,6 +48,12 @@ async def get(session, id):
         return id, fetch_success
 
 async def main(ids):
+    '''
+        Asynchronous function to send a bundle of requests to the server
+        First a session is created, and all requests are sent at once in
+        a list. 
+        Returns the data once all tasks have completed (successfully or not)
+    '''
     async with aiohttp.ClientSession() as session:
         tasks = []
         for id in ids:
@@ -60,95 +61,85 @@ async def main(ids):
         results = await asyncio.gather(*tasks, return_exceptions=True)
         return results
 
+# ================= #
+# === MAIN LOOP === #
+# ================= #
 
 if __name__ == '__main__':
-    n_ids = 100000
-    n_successes = 0
-    t0 = time.time()
+    
+    # clear the files' contents 
+    states_file_path = 'asteroidStates.csv'
+    epochs_file_path = 'epochs.csv'
+    open(states_file_path, 'w').close()
+    open(epochs_file_path, 'w').close()
+
+    print('Fetching asteroid states...')
+
+    # open the file in append mode so that saving can be done in steps
+    states_file = open(states_file_path, 'a')
+    epochs_file = open(epochs_file_path, 'a')
+    
+    n_ids = 660000
     n_step = 10000
-    faulty_ids = []
-    data = [0] * n_ids
+    n_successes_total = 0
+    
+    t0 = time.time()
+    
     for j in range(0, n_ids, n_step):
-        t1 = time.time()
+        t1 = time.time() # initial time for the beginning of the step
+        n_successes_step = 0
+        data = [] # [0] * n_step
         ids = [(j+i+1) for i in range(n_step)]
         while len(ids) > 0:
-            res = asyncio.run(main(ids))
+            res = asyncio.run(main(ids)) # send the request calls
             for result in res:
                 if result[-1] == True:
-                    id = result[-2]-1 # indexing starts at 1 in horizons database
-                    data[id] = result[0]
+                    #id = result[-2]-1 # indexing starts at 1 in horizons database
+                    data.append(result[0]) # [id] = result[0]
                     ids.remove(result[-2])
-                    n_successes += 1
-            #print(f'Amount of ids successfully retrieved: {step-len(ids)}/{step}')
+                    n_successes_total += 1
+                    n_successes_step += 1
+            print(f'Amount of ids successfully retrieved: {n_successes_step}/{n_step}')
+        
+        # debug
         t2 = time.time()
         t_step = t2-t1
         t_tot  = t2-t0
-        print(f'\nAmount of ids successfully retrieved: {n_successes}/{n_ids}')
         print(f'Step elapsed time: {t_step}')
         print(f'Total elapsed time: {t_tot}')
         print(f'Step Average time per id: {t_step / n_step}')
-        print(f'Total Average time per id: {t_tot / n_successes}')
-    #print(data, len(data))
+        print(f'Total Average time per id: {t_tot / n_successes_total}')
+        print(f'Amount of ids successfully retrieved: {n_successes_total}/{n_ids}\n')
 
-    orb = []
-    for entry in data:
-        orb.append(pyorb.Orbit(
-        M0           = pyorb.M_sol,
-        G            = pyorb.get_G('m', 'kg', 's'),
-        degrees      = True,
-        type         = 'mean',
-        epoch        = float(entry['orbit']['epoch']),
-        a            = float(entry['orbit']['elements'][1]['value']) * au2m,
-        e            = float(entry['orbit']['elements'][0]['value']),
-        i            = float(entry['orbit']['elements'][3]['value']),
-        omega        = float(entry['orbit']['elements'][5]['value']),
-        Omega        = float(entry['orbit']['elements'][4]['value']),
-        mean_anomaly = float(entry['orbit']['elements'][6]['value'])
-        ))
+        # Store states with the PyOrb's orbit struct for convenience
+        # it has built in access to cartesian coordinates
+        orbits = []
+        for entry in data:
+            orbits.append(pyorb.Orbit(M0      = pyorb.M_sol,
+                                      G       = pyorb.get_G('m', 'kg', 's'),
+                                      degrees = True,
+                                      type    = 'mean',
+                                      epoch   = float(entry['orbit']['epoch']),
+                                      a       = float(entry['orbit']['elements'][1]['value']) * au2m,
+                                      e       = float(entry['orbit']['elements'][0]['value']),
+                                      i       = float(entry['orbit']['elements'][3]['value']),
+                                      omega   = float(entry['orbit']['elements'][5]['value']),
+                                      Omega   = float(entry['orbit']['elements'][4]['value']),
+                                      anom    = float(entry["orbit"]["elements"][6]["value"]),
+            ))
 
-    #for orbit in orb:
-        #print(orbit)
+        # Prep the lists for dumping to file
+        cartesian_states = [[] for i in range(len(orbits))]
+        epochs = [0] * len(orbits)
+        for i, orbit in enumerate(orbits):
+            epochs[i] = orbit.epoch 
+            for element in orbit.cartesian:
+                cartesian_states[i].append(element[0])
         
-'''
-r = requests.get(httpCommand)
+        # Dump request to file
+        np.savetxt(states_file, cartesian_states, fmt='%f')
+        np.savetxt(epochs_file, epochs, fmt='%f')
 
-# convert json to python dictionary
-dict = json.loads(r.text)
-#debug
-print("\nID: %i" %id)
-print(dict)
-
-# get the orbital elements from the dict
-# 0: e
-# 1: a
-# 2: perihelion distance
-# 3: i
-# 4: longitude of ascending node
-# 5: argument of perihelion
-# 6: mean anomaly
-orb = pyorb.Orbit(
-    M0           = pyorb.M_sol,
-    G            = pyorb.get_G('m', 'kg', 's'),
-    degrees      = True,
-    type         = 'mean',
-    num          = 1,
-    epoch        = float(dict['orbit']['epoch']),
-    a            = float(dict['orbit']['elements'][1]['value']) * au2m,
-    e            = float(dict['orbit']['elements'][0]['value']),
-    i            = float(dict['orbit']['elements'][3]['value']),
-    omega        = float(dict['orbit']['elements'][5]['value']),
-    Omega        = float(dict['orbit']['elements'][4]['value']),
-    mean_anomaly = float(dict['orbit']['elements'][6]['value'])
-)
-
-print(float(dict['orbit']['elements'][6]['value']))
-'''
-
-'''
-    PARALLELIZE GET REQUESTS!
-
-    FIX THE EPOCH!
-'''
-
-# Dump request to file
-#np.savetxt('asteroidStates.csv', kepler_states, fmt='%f')
+    # clean up files
+    states_file.close()
+    epochs_file.close()
